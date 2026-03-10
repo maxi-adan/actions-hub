@@ -1,0 +1,71 @@
+name: PR Notification
+on:
+  push:
+    branches: ["development", "qa", "staging", "production"]
+    paths-ignore:
+      - "**.md"
+
+jobs:
+  job1:
+    runs-on: ubuntu-latest
+    environment: development
+    env:
+      SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+    steps:
+      - uses: actions/checkout@v2
+
+      # Notify Slack on push to specified branches
+      - name: Notify Slack - Push
+        uses: act10ns/slack@v2
+        with:
+          status: starting
+          config: .github/workflows/slack.yml
+          channel: "#pr-notifications"
+          message: |
+            :rocket: *A new push to `${{ github.ref_name }}` has been detected!* :rocket:
+            *Workflow:* `${{ github.workflow }}`
+            *Job Status:* `${{ job.status }}`
+            *Commit:* `${{ github.sha }}`
+            *Run ID:* `${{ github.run_id }}`
+            *Actor:* `${{ github.actor }}`
+        if: ${{ github.event_name == 'push' }}
+
+      # Notify Slack on successful merge
+      - name: Notify Slack - Pull Request Merged
+        uses: act10ns/slack@v2
+        with:
+          status: success
+          config: .github/workflows/slack.yml
+          channel: "#pr-notifications"
+          message: |
+            :tada: *Pull request to `${{ github.ref_name }}` merged successfully!* :tada:
+            *Workflow:* `${{ github.workflow }}`
+            *Job Status:* `${{ job.status }}`
+            *PR Number:* `${{ github.event.pull_request.number }}`
+            *Run ID:* `${{ github.run_id }}`
+            *Actor:* `${{ github.actor }}`
+        if: ${{ github.event_name == 'pull_request' && github.event.action == 'closed' && github.event.pull_request.merged == true }}
+
+      # Notify Slack on merge failure
+      - name: Notify Slack - Merge Failure
+        uses: act10ns/slack@v2
+        with:
+          status: failure
+          config: .github/workflows/slack.yml
+          channel: "#pr-notifications"
+          message: |
+            :x: *Merge to `${{ github.ref_name }}` failed!* :x:
+            *Workflow:* `${{ github.workflow }}`
+            *Job Status:* `${{ job.status }}`
+            *PR Number:* `${{ github.event.pull_request.number }}`
+            *Run ID:* `${{ github.run_id }}`
+            *Actor:* `${{ github.actor }}`
+        if: ${{ github.event_name == 'pull_request' && github.event.action == 'closed' && github.event.pull_request.merged == false }}
+
+      # Final status notification
+      - name: Final Status
+        uses: act10ns/slack@v2
+        with:
+          status: ${{ job.status }}
+          config: .github/workflows/slack.yml
+        if: always()
